@@ -1,0 +1,71 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.9.34728.123
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "QAdjustFileParse", "QAdjustFileParse\QAdjustFileParse.vcxproj", "{BE537B7F-BD18-4F7C-8ABA-408386BFAF98}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "QUtils", "..\QUtils\QUtils\QUtils.vcxproj", "{4D71BF2E-541A-4E75-A15B-960A03D242A1}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Toast", "..\Toast\Toast\Toast.vcxproj", "{6481E78A-2E78-4E65-B975-B908FD00D9D7}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TunnelEntity", "..\QTunnelTask\TunnelEntity\TunnelEntity.vcxproj", "{72E461BE-7AE0-4511-A3A9-6BC1CB8C4DD8}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Test", "Test\Test.vcxproj", "{ABDCDA1F-72C1-44D9-AF56-9EB487B66275}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Qt5Debug|x64 = Qt5Debug|x64
+		Qt5Release|x64 = Qt5Release|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{BE537B7F-BD18-4F7C-8ABA-408386BFAF98}.Debug|x64.ActiveCfg = Debug|x64
+		{BE537B7F-BD18-4F7C-8ABA-408386BFAF98}.Debug|x64.Build.0 = Debug|x64
+		{BE537B7F-BD18-4F7C-8ABA-408386BFAF98}.Qt5Debug|x64.ActiveCfg = Qt5Debug|x64
+		{BE537B7F-BD18-4F7C-8ABA-408386BFAF98}.Qt5Debug|x64.Build.0 = Qt5Debug|x64
+		{BE537B7F-BD18-4F7C-8ABA-408386BFAF98}.Qt5Release|x64.ActiveCfg = Qt5Release|x64
+		{BE537B7F-BD18-4F7C-8ABA-408386BFAF98}.Qt5Release|x64.Build.0 = Qt5Release|x64
+		{BE537B7F-BD18-4F7C-8ABA-408386BFAF98}.Release|x64.ActiveCfg = Release|x64
+		{BE537B7F-BD18-4F7C-8ABA-408386BFAF98}.Release|x64.Build.0 = Release|x64
+		{4D71BF2E-541A-4E75-A15B-960A03D242A1}.Debug|x64.ActiveCfg = Debug|x64
+		{4D71BF2E-541A-4E75-A15B-960A03D242A1}.Debug|x64.Build.0 = Debug|x64
+		{4D71BF2E-541A-4E75-A15B-960A03D242A1}.Qt5Debug|x64.ActiveCfg = Qt5Debug|x64
+		{4D71BF2E-541A-4E75-A15B-960A03D242A1}.Qt5Debug|x64.Build.0 = Qt5Debug|x64
+		{4D71BF2E-541A-4E75-A15B-960A03D242A1}.Qt5Release|x64.ActiveCfg = Qt5Release|x64
+		{4D71BF2E-541A-4E75-A15B-960A03D242A1}.Qt5Release|x64.Build.0 = Qt5Release|x64
+		{4D71BF2E-541A-4E75-A15B-960A03D242A1}.Release|x64.ActiveCfg = Release|x64
+		{4D71BF2E-541A-4E75-A15B-960A03D242A1}.Release|x64.Build.0 = Release|x64
+		{6481E78A-2E78-4E65-B975-B908FD00D9D7}.Debug|x64.ActiveCfg = Debug|x64
+		{6481E78A-2E78-4E65-B975-B908FD00D9D7}.Debug|x64.Build.0 = Debug|x64
+		{6481E78A-2E78-4E65-B975-B908FD00D9D7}.Qt5Debug|x64.ActiveCfg = Qt5Debug|x64
+		{6481E78A-2E78-4E65-B975-B908FD00D9D7}.Qt5Debug|x64.Build.0 = Qt5Debug|x64
+		{6481E78A-2E78-4E65-B975-B908FD00D9D7}.Qt5Release|x64.ActiveCfg = Qt5Release|x64
+		{6481E78A-2E78-4E65-B975-B908FD00D9D7}.Qt5Release|x64.Build.0 = Qt5Release|x64
+		{6481E78A-2E78-4E65-B975-B908FD00D9D7}.Release|x64.ActiveCfg = Release|x64
+		{6481E78A-2E78-4E65-B975-B908FD00D9D7}.Release|x64.Build.0 = Release|x64
+		{72E461BE-7AE0-4511-A3A9-6BC1CB8C4DD8}.Debug|x64.ActiveCfg = Debug|x64
+		{72E461BE-7AE0-4511-A3A9-6BC1CB8C4DD8}.Debug|x64.Build.0 = Debug|x64
+		{72E461BE-7AE0-4511-A3A9-6BC1CB8C4DD8}.Qt5Debug|x64.ActiveCfg = Debug|x64
+		{72E461BE-7AE0-4511-A3A9-6BC1CB8C4DD8}.Qt5Debug|x64.Build.0 = Debug|x64
+		{72E461BE-7AE0-4511-A3A9-6BC1CB8C4DD8}.Qt5Release|x64.ActiveCfg = Release|x64
+		{72E461BE-7AE0-4511-A3A9-6BC1CB8C4DD8}.Qt5Release|x64.Build.0 = Release|x64
+		{72E461BE-7AE0-4511-A3A9-6BC1CB8C4DD8}.Release|x64.ActiveCfg = Release|x64
+		{72E461BE-7AE0-4511-A3A9-6BC1CB8C4DD8}.Release|x64.Build.0 = Release|x64
+		{ABDCDA1F-72C1-44D9-AF56-9EB487B66275}.Debug|x64.ActiveCfg = Debug|x64
+		{ABDCDA1F-72C1-44D9-AF56-9EB487B66275}.Debug|x64.Build.0 = Debug|x64
+		{ABDCDA1F-72C1-44D9-AF56-9EB487B66275}.Qt5Debug|x64.ActiveCfg = Debug|x64
+		{ABDCDA1F-72C1-44D9-AF56-9EB487B66275}.Qt5Debug|x64.Build.0 = Debug|x64
+		{ABDCDA1F-72C1-44D9-AF56-9EB487B66275}.Qt5Release|x64.ActiveCfg = Release|x64
+		{ABDCDA1F-72C1-44D9-AF56-9EB487B66275}.Qt5Release|x64.Build.0 = Release|x64
+		{ABDCDA1F-72C1-44D9-AF56-9EB487B66275}.Release|x64.ActiveCfg = Release|x64
+		{ABDCDA1F-72C1-44D9-AF56-9EB487B66275}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {8D40B8A7-4C96-4C7C-90F0-3B975307C1C8}
+	EndGlobalSection
+EndGlobal

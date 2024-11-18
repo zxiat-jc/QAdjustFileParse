@@ -59,6 +59,13 @@ namespace In1 {
      */
     QADJUSTFILEPARSE_EXPORT QMap<QPair<QString, QString>, QPair<double, double>> ParseIn1(QTextStream& stream);
 
+    /**
+     * @brief in1解析为往返测数据
+     * @param stream 文件流
+     * @return  QMap{<起始点，目标点>，<<往测高差，往测距离>,<返测高差，返测距离>>}
+     */
+    QADJUSTFILEPARSE_EXPORT QMap<QPair<QString, QString>, QPair<QPair<double, double>, QPair<double, double>>> ParseIn1EveryOrient(QTextStream& stream);
+
     QADJUSTFILEPARSE_EXPORT QList<In1Observed> ParseIn12Enity(QTextStream& stream);
 }
 

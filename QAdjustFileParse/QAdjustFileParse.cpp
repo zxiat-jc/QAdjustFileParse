@@ -180,6 +180,52 @@ QMap<QPair<QString, QString>, QPair<double, double>> QAdjustFileParse::In1::Pars
     return data;
 }
 
+QMap<QPair<QString, QString>, QPair<QPair<double, double>, QPair<double, double>>> QAdjustFileParse::In1::ParseIn1EveryOrient(QTextStream& in)
+{
+    // 是否读到未知点所在行
+    bool s = false;
+    // 来回测数据、单向数据
+    QMap<QPair<QString, QString>, QPair<QPair<double, double>, QPair<double, double>>> data;
+    int lineNum = 0;
+    while (!in.atEnd()) {
+        lineNum++;
+        QString line = in.readLine().trimmed();
+        if (line.isEmpty()) {
+            continue;
+        }
+        if (line.split(",").size() == 4) {
+            s = true;
+        }
+        if (!s) {
+            // QStringList splitString = line.split(",");
+            // QString pname = splitString[0];
+            // double altitude = splitString[1].toDouble();
+            // knownPoints[pname] = altitude;
+        } else {
+            QStringList splitString = line.split(",");
+            QString startp = splitString[0];
+            QString endp = splitString[1];
+            double heightDiff = splitString[2].toDouble();
+            double distance = splitString[3].toDouble();
+
+            // 检查之前存储数据 是否与当前数据配对
+            if (data.contains(qMakePair(endp, startp))) {
+                data[qMakePair(endp, startp)].second = qMakePair(heightDiff, distance);
+            } else {
+                data[qMakePair(startp, endp)].first = qMakePair(heightDiff, distance);
+            }
+        }
+    }
+    // 移除未匹配数据
+    for (auto&& pair : data.keys()) {
+        if (data[pair].second == QPair<double, double>()) {
+            data.remove(pair);
+        }
+    }
+
+    return data;
+}
+
 QList<In1Observed> QAdjustFileParse::In1::ParseIn12Enity(QTextStream& stream)
 {
     QList<In1Observed> obss;

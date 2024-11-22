@@ -78,6 +78,13 @@ namespace SUC {
     QADJUSTFILEPARSE_EXPORT QPair<QString, QList<QPair<int, QList<QPair<QString, std::tuple<QPair<std::tuple<double, double, double>, std::tuple<double, double, double>>, double, double>>>>>> ParseSuc(QTextStream& stream);
 
     /**
+     * @brief suc文件测回数据解析
+     * @param stream 文件流
+     * @return QMap<测站名,QPair<测回，测回数据>>
+     */
+    QADJUSTFILEPARSE_EXPORT QMap<QString, QList<QPair<int, QList<QPair<QString, QPair<std::tuple<double, double, double>, std::tuple<double, double, double>>>>>>> ParseSucEveryOrient(QTextStream& stream);
+
+    /**
      * @brief suc数据解析为对象
      * @param stream
      * @return
@@ -101,11 +108,7 @@ namespace In2 {
     QADJUSTFILEPARSE_EXPORT QList<QPair<QString, QList<In2Observed>>> ParseIn22Entity(QTextStream& stream);
 }
 namespace Gra {
-    /**
-     * @brief gra文件解析
-     * @param stream 文件流
-     * @return QPair<{QPair<QPair<线段点1，线段点2>，两点是否已知>},QMap{点名，QPair<QPair<x,y>,tuple{长轴半径，短轴半径，长轴方向}>}>
-     */
-    QADJUSTFILEPARSE_EXPORT std::tuple<QMap<QPair<QString, QString>, bool>, QMap<QString, Eigen::Vector2d>, QMap<QString, std::tuple<double, double, double>>> ParseGra(QTextStream& stream);
+
+    QADJUSTFILEPARSE_EXPORT QPair<QMap<QString, QPair<Eigen::Vector2d, bool>>, QList<QPair<QString, QString>>> ParseGra(QTextStream& stream);
 }
 };

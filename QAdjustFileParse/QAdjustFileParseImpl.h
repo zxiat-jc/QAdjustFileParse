@@ -96,6 +96,8 @@ namespace SUC {
      * @return QList<QPair<点名，{QPair<{水平角(左)，天顶距1(左)，{斜距1(左)},{水平角(右)，天顶距1(右)，斜距1(右)}>,仪器高，棱镜高}>>
      */
     QList<QPair<QString, std::tuple<QPair<std::tuple<double, double, double>, std::tuple<double, double, double>>, double, double>>> ParseSucRound(QTextStream& stream);
+
+    QList<QPair<QString, QPair<std::tuple<double, double, double>, std::tuple<double, double, double>>>> ParseSucRoundEveryOrient(QTextStream& stream);
 }
 namespace In2 {
     QPair<QString, QList<std::tuple<QString, QString, double>>> ParseIn2StnData(QTextStream& stream);

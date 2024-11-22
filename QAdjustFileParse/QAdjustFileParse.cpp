@@ -414,6 +414,52 @@ QPair<QString, QList<QPair<int, QList<QPair<QString, std::tuple<QPair<std::tuple
     return qMakePair(deviceName, rounds);
 }
 
+QADJUSTFILEPARSE_EXPORT QMap<QString, QList<QPair<int, QList<QPair<QString, QPair<std::tuple<double, double, double>, std::tuple<double, double, double>>>>>>> QAdjustFileParse::SUC::ParseSucEveryOrient(QTextStream& in)
+{
+    // 测站名
+    QString deviceName;
+    // 是否读到测回行
+    bool s = false;
+    // 测回
+    int surveyTime = 0;
+    // 是否是新的测站
+    bool isNewStn = false;
+    // 所有测回数据
+    QList<QPair<int, QList<QPair<QString, QPair<std::tuple<double, double, double>, std::tuple<double, double, double>>>>>> rounds;
+    // 结果
+    QMap<QString, QList<QPair<int, QList<QPair<QString, QPair<std::tuple<double, double, double>, std::tuple<double, double, double>>>>>>> result;
+    while (!in.atEnd()) {
+        auto&& pos = in.pos();
+        QString line = in.readLine();
+        QStringList lineList = line.split(",");
+        if (!s) {
+            if (lineList.size() == 4) {
+                if (isNewStn) {
+                    deviceName = lineList[0].trimmed();
+                    isNewStn = true;
+                    rounds.clear();
+                } else {
+                    deviceName = lineList[0].trimmed();
+                    isNewStn = true;
+                }
+            }
+            if (lineList.size() == 1) {
+                s = true;
+                surveyTime = lineList[0].trimmed().toInt();
+            }
+        }
+        if (s && isNewStn) {
+            rounds.append(qMakePair(surveyTime, QAdjustFileParse::SUC::ParseSucRoundEveryOrient(in)));
+            s = false;
+        }
+        if (in.atEnd()) {
+            result[deviceName] = rounds;
+            return result;
+        }
+    }
+    return result;
+}
+
 QList<SucPoint> QAdjustFileParse::SUC::ParseSuc2Entity(QTextStream& stream)
 {
     QList<SucPoint> points;
@@ -503,6 +549,71 @@ QList<QPair<QString, std::tuple<QPair<std::tuple<double, double, double>, std::t
 
         rounds.append(qMakePair(ldata.first, std::make_tuple(qMakePair(std::make_tuple(lh, lv, ls), std::make_tuple(rh, rv, rs)), deviceHeight, prismHeight)));
 
+        leftIter++;
+        rightIter++;
+    }
+
+    return rounds;
+}
+
+QList<QPair<QString, QPair<std::tuple<double, double, double>, std::tuple<double, double, double>>>> QAdjustFileParse::SUC::ParseSucRoundEveryOrient(QTextStream& in)
+{
+    // 上半测回点集map key:点名 value:点序号 序号是leftDatas的索引
+    QMap<QString, int> leftPnames;
+    QMap<QString, int> rightPnames;
+    int leftIndexs = 0;
+    int rightIndexs = 0;
+    // 上半测回数据
+    QList<QPair<QString, std::tuple<double, double, double>>> leftDatas;
+    // 下半测回数据
+    QList<QPair<QString, std::tuple<double, double, double>>> rightDatas;
+    // 上半测回是否结束
+    bool isEnd = false;
+
+    while (!in.atEnd()) {
+        auto&& pos = in.pos();
+        QString line = in.readLine();
+        QStringList lineList = line.split(",");
+        if (lineList.size() == 6) {
+            QString pname = lineList[0].trimmed();
+            double h = lineList[1].trimmed().toDouble();
+            double v = lineList[2].trimmed().toDouble();
+            double s = lineList[3].trimmed().toDouble();
+
+            // 上半测回
+            if (!isEnd) {
+                // 当测到已存在的点时，该测回结束
+                leftDatas.append(qMakePair(pname, std::make_tuple(h, v, s)));
+                if (leftPnames.contains(pname)) {
+                    isEnd = true;
+                } else {
+                    leftPnames[pname] = leftIndexs;
+                    leftIndexs++;
+                }
+            } else {
+                rightDatas.append(qMakePair(pname, std::make_tuple(h, v, s)));
+                rightIndexs++;
+                rightPnames[pname] = rightIndexs;
+            }
+        } else if (lineList.size() == 1) {
+            in.seek(pos);
+            break;
+        }
+    }
+
+    QList<QPair<QString, QPair<std::tuple<double, double, double>, std::tuple<double, double, double>>>> rounds;
+    auto&& leftIter = leftDatas.begin();
+    auto&& rightIter = rightDatas.rbegin();
+
+    while (leftIter != leftDatas.end() && rightIter != rightDatas.rend()) {
+        auto&& ldata = *leftIter;
+        auto&& rdata = *rightIter;
+
+        auto&& [lh, lv, ls] = ldata.second;
+        auto&& [rh, rv, rs] = rdata.second;
+        if (ldata.first == rdata.first) {
+            rounds.append(qMakePair(ldata.first, qMakePair(std::make_tuple(lh, lv, ls), std::make_tuple(rh, rv, rs))));
+        }
         leftIter++;
         rightIter++;
     }
@@ -602,54 +713,28 @@ QPair<QString, QList<std::tuple<QString, QString, double>>> QAdjustFileParse::In
     return stnData;
 }
 
-std::tuple<QMap<QPair<QString, QString>, bool>, QMap<QString, Eigen::Vector2d>, QMap<QString, std::tuple<double, double, double>>> QAdjustFileParse::Gra::ParseGra(QTextStream& in)
+QPair<QMap<QString, QPair<Eigen::Vector2d, bool>>, QList<QPair<QString, QString>>> QAdjustFileParse::Gra::ParseGra(QTextStream& in)
 {
-    QMap<QPair<QString, QString>, bool> lines;
-    QMap<QString, Eigen::Vector2d> points;
-    QMap<QString, std::tuple<double, double, double>> ovals;
+    QList<QPair<QString, QString>> lines;
+    QMap<QString, QPair<Eigen::Vector2d, bool>> points;
+
     int pointNum = 0;
     int pointLineNum = 0;
     while (!in.atEnd()) {
         QString line = in.readLine();
-        QStringList list = SpaceReplacSplit(line);
-        if (list.size() == 2) {
-            pointNum = list[0].toInt();
+        if (line.isEmpty()) {
             continue;
         }
-
-        if (pointNum != 0) {
-            // 读取点行数据
-            if (pointLineNum < pointNum) {
-                if (list.size() == 3) {
-                    QString pname = list[0];
-                    double x = list[1].toDouble();
-                    double y = list[2].toDouble();
-                    points[pname] = Eigen::Vector2d(x, y);
-                    pointLineNum++;
-                } else if (list.size() == 6) {
-                    QString pname = list[0];
-                    double x = list[1].toDouble();
-                    double y = list[2].toDouble();
-                    // 长半轴半径
-                    double a = list[3].toDouble();
-                    // 短半轴半径
-                    double b = list[4].toDouble();
-                    // 长半轴旋转角
-                    double a_angle = list[5].toDouble();
-                    points[pname] = Eigen::Vector2d(x, y);
-                    ovals[pname] = std::make_tuple(a, b, a_angle);
-                    pointLineNum++;
-                }
-                continue;
-            }
-            // 读取行数据
-            if (list.size() == 3) {
-                QString p1 = list[0];
-                QString p2 = list[1];
-                bool isKnownLine = list[2] == "S" ? true : false;
-                lines[qMakePair(p1, p2)] = isKnownLine;
-            }
+        QStringList list = SpaceReplacSplit(line);
+        if (list.size() == 4) {
+            auto&& pname = list[0];
+            auto&& x = list[1].toDouble();
+            auto&& y = list[2].toDouble();
+            bool isKnown = list[3].toInt();
+            points[pname] = qMakePair(Eigen::Vector2d(x, y), isKnown);
+        } else if (list.size() == 2) {
+            lines.append(qMakePair(list[0], list[1]));
         }
     }
-    return std::make_tuple(lines, points, ovals);
+    return qMakePair(points, lines);
 }

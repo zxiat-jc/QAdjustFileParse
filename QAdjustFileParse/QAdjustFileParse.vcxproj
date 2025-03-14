@@ -70,7 +70,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'" Label="QtSettings">
     <QtInstall>CURRENT_QT</QtInstall>
-    <QtModules>core</QtModules>
+    <QtModules>core;widgets</QtModules>
     <QtBuildConfig>release</QtBuildConfig>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Qt5Release|x64'" Label="QtSettings">
@@ -207,6 +207,9 @@
     <ClCompile Include="QAdjustFileParse.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\QTunnelTask\ConfigWrap\ConfigWrap.vcxproj">
+      <Project>{579f8481-df0c-41f2-92cb-bdbf7c1912ea}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\..\QTunnelTask\TunnelEntity\TunnelEntity.vcxproj">
       <Project>{72e461be-7ae0-4511-a3a9-6bc1cb8c4dd8}</Project>
     </ProjectReference>

@@ -10,25 +10,33 @@
 
 #include <regex>
 
+#include "ConfigWrap.h"
 #include "DatRound.h"
-#include "GSIRound.h"
 #include "QtUtils.h"
 
 using namespace QAdjustFileParse;
 
-QList<QPair<QList<QPair<QList<std::tuple<QString, QString, double, double>>, QPair<QString, double>>>, QPair<QString, double>>> QAdjustFileParse::Dat::ParseDat(QTextStream& in)
+std::optional<QList<QPair<QList<QPair<QList<std::tuple<QString, QString, double, double>>, QPair<QString, double>>>, QPair<QString, double>>>> QAdjustFileParse::Dat::ParseDat(QTextStream& in)
 {
     QList<QPair<QList<QPair<QList<std::tuple<QString, QString, double, double>>, QPair<QString, double>>>, QPair<QString, double>>> dat;
     while (!in.atEnd()) {
-        dat.push_back(Dat::ParseDatSeg(in));
+        auto&& opt = Dat::ParseDatSeg(in);
+        if (!opt.has_value()) {
+            return std::nullopt;
+        }
+        dat.push_back(opt.value());
     }
     return dat;
 }
 
-QADJUSTFILEPARSE_EXPORT QList<DatSeg> QAdjustFileParse::Dat::ParseDat2Entity(QTextStream& stream)
+QADJUSTFILEPARSE_EXPORT std::optional<QList<DatSeg>> QAdjustFileParse::Dat::ParseDat2Entity(QTextStream& stream)
 {
     QList<DatSeg> segs;
-    auto&& dat = QAdjustFileParse::Dat::ParseDat(stream);
+    auto&& opt = QAdjustFileParse::Dat::ParseDat(stream);
+    if (!opt.has_value()) {
+        std::nullopt;
+    }
+    auto&& dat = opt.value();
     for (int i = 0; i < dat.size(); i++) {
         // 测段
         auto&& datSeg = dat[i];
@@ -56,7 +64,7 @@ QADJUSTFILEPARSE_EXPORT QList<DatSeg> QAdjustFileParse::Dat::ParseDat2Entity(QTe
     return segs;
 }
 
-QPair<QList<QPair<QList<std::tuple<QString, QString, double, double>>, QPair<QString, double>>>, QPair<QString, double>> QAdjustFileParse::Dat::ParseDatSeg(QTextStream& in)
+std::optional<QPair<QList<QPair<QList<std::tuple<QString, QString, double, double>>, QPair<QString, double>>>, QPair<QString, double>>> QAdjustFileParse::Dat::ParseDatSeg(QTextStream& in)
 {
     // 测段 数据结构
     QList<QPair<QList<std::tuple<QString, QString, double, double>>, QPair<QString, double>>> seg;
@@ -69,71 +77,116 @@ QPair<QList<QPair<QList<std::tuple<QString, QString, double, double>>, QPair<QSt
         QString line = in.readLine();
         if (line.contains("Start-Line")) {
             s = true;
-            start = Dat::ParseDatRoundAltitudeLine(in.readLine());
+            auto&& opt = Dat::ParseDatRoundAltitudeLine(in.readLine());
+            if (!opt.has_value()) {
+                return std::nullopt;
+            }
+            start = opt.value();
         } else if (line.contains("End-Line")) {
             s = false;
             break;
         } else {
+            if (!Dat::IsValidDatLine(line)) {
+                continue;
+            }
             in.seek(pos);
         }
 
         if (s) {
-            auto&& data = Dat::ParseDatRound(in);
-            seg.push_back(data);
+            auto&& opt = Dat::ParseDatRound(in);
+            if (!opt.has_value()) {
+                return std::nullopt;
+            }
+            auto&& round = opt.value();
+            seg.push_back(round);
         }
     }
     return qMakePair(seg, start);
 }
 
-QPair<QList<std::tuple<QString, QString, double, double>>, QPair<QString, double>> QAdjustFileParse::Dat::ParseDatRound(QTextStream& in)
+std::optional<QPair<QList<std::tuple<QString, QString, double, double>>, QPair<QString, double>>> QAdjustFileParse::Dat::ParseDatRound(QTextStream& in)
 {
-    QPair<QList<std::tuple<QString, QString, double, double>>, QPair<QString, double>> round;
+    QList<std::tuple<QString, QString, double, double>> roundData;
+    QPair<QString, double> targetHeight;
+    // 是否是测回起始点所在行
     std::optional<QString> startPoint { std::nullopt };
     while (!in.atEnd()) {
         QString line = in.readLine();
         if (!Dat::IsValidDatLine(line)) {
             continue;
         }
-        auto&& array = Dat::ParseDatRoundLine(line);
+        auto&& opt = Dat::ParseDatRoundLine(line);
+        if (!opt.has_value()) {
+            return std::nullopt;
+        }
+        auto&& lineData = opt.value();
+
         if (!startPoint.has_value()) {
-            startPoint = std::get<0>(array);
-            round.first.push_back(array);
-        } else if (startPoint == std::get<0>(array)) {
-            round.first.push_back(array);
-            round.second = ParseDatRoundAltitudeLine(in.readLine());
+            startPoint = std::get<0>(lineData);
+            roundData.push_back(lineData);
+        } else if (startPoint == std::get<0>(lineData)) {
+            roundData.push_back(lineData);
+            auto&& opt = ParseDatRoundAltitudeLine(in.readLine());
+            if (!opt.has_value()) {
+                return std::nullopt;
+            }
+            targetHeight = opt.value();
             break;
         } else {
-            round.first.push_back(array);
+            roundData.push_back(lineData);
         }
     }
-    return round;
+    return qMakePair(roundData, targetHeight);
 }
 
-std::tuple<QString, QString, double, double> QAdjustFileParse::Dat::ParseDatRoundLine(QString line)
+std::optional<std::tuple<QString, QString, double, double>> QAdjustFileParse::Dat::ParseDatRoundLine(QString line)
 {
     QStringList parts = line.split("|");
+    if (parts.size() != 7) {
+        qDebug() << "DAT测回数据有误" << line;
+        return std::nullopt;
+    }
     parts.removeFirst();
     parts.removeFirst();
     QString target, orient;
     double heightDiff, distance;
-    target = SpaceReplacSplit(parts[0])[1];
-    orient = SpaceReplacSplit(parts[1])[0];
-    heightDiff = SpaceReplacSplit(parts[1])[1].toDouble();
-    distance = SpaceReplacSplit(parts[2])[1].toDouble();
+
+    auto&& targetSection = SpaceReplacSplit(parts[0]);
+    auto&& heightSection = SpaceReplacSplit(parts[1]);
+    auto&& distanceSection = SpaceReplacSplit(parts[2]);
+    if (!(targetSection.size() >= 2) || heightSection.size() != 3 || distanceSection.size() != 3) {
+        qDebug() << "DAT测回数据有误" << line;
+        return std::nullopt;
+    }
+    target = targetSection[1];
+    orient = heightSection[0];
+    heightDiff = heightSection[1].toDouble();
+    distance = distanceSection[1].toDouble();
     return std::make_tuple(target, orient, heightDiff, distance);
 }
 
-QPair<QString, double> QAdjustFileParse::Dat::ParseDatRoundAltitudeLine(QString line)
+std::optional<QPair<QString, double>> QAdjustFileParse::Dat::ParseDatRoundAltitudeLine(QString line)
 {
     QStringList parts = line.split("|");
+    if (parts.size() != 7) {
+        qDebug() << "DAT测回高程行数据有误" << line;
+        return std::nullopt;
+    }
     parts.removeFirst();
     parts.removeFirst();
-    QString target = SpaceReplacSplit(parts[0])[1];
-    double altitude = SpaceReplacSplit(parts[3])[1].toDouble();
+
+    auto&& targetSection = SpaceReplacSplit(parts[0]);
+    auto&& altitudeSection = SpaceReplacSplit(parts[3]);
+    if (targetSection.size() < 2 || altitudeSection.size() < 2) {
+        qDebug() << "DAT测回高程行数据有误" << line;
+        return std::nullopt;
+    }
+    QString target = targetSection[1];
+    double altitude = altitudeSection[1].toDouble();
     return qMakePair(target, altitude);
 }
 
-QMap<QPair<QString, QString>, QPair<double, double>> QAdjustFileParse::In1::ParseIn1(QTextStream& in)
+std::optional<QMap<QPair<QString, QString>, QPair<double, double>>> QAdjustFileParse::In1::ParseIn1(QTextStream& in)
 {
     // 是否读到未知点所在行
     bool s = false;
@@ -148,39 +201,39 @@ QMap<QPair<QString, QString>, QPair<double, double>> QAdjustFileParse::In1::Pars
         if (line.isEmpty()) {
             continue;
         }
-        if (line.split(",").size() == 4) {
+        QStringList splitString = line.split(",");
+        if (splitString.size() == 4) {
             s = true;
         }
-        if (!s) {
-            // QStringList splitString = line.split(",");
-            // QString pname = splitString[0];
-            // double altitude = splitString[1].toDouble();
-            // knownPoints[pname] = altitude;
-        } else {
-            QStringList splitString = line.split(",");
-            QString startp = splitString[0];
-            QString endp = splitString[1];
-            double heightDiff = splitString[2].toDouble();
-            double distance = splitString[3].toDouble();
 
-            // 检查之前存储数据 是否与当前数据配对
-            if (data.contains(qMakePair(endp, startp))) {
-                // 处理后数据
-                double fHeightDiff = data[qMakePair(endp, startp)].first;
-                double fDistance = data[qMakePair(endp, startp)].second;
-                data[qMakePair(endp, startp)].first = fHeightDiff < 0 ? -(absoluteMean(fHeightDiff, heightDiff)) : absoluteMean(fHeightDiff, heightDiff);
-                data[qMakePair(endp, startp)].second = absoluteMean(fDistance, distance);
+        if (s) {
+            if (splitString.size() == 4) {
+                QString startp = splitString[0];
+                QString endp = splitString[1];
+                double heightDiff = splitString[2].toDouble();
+                double distance = splitString[3].toDouble();
+
+                // 检查之前存储数据 是否与当前数据配对
+                if (data.contains(qMakePair(endp, startp))) {
+                    // 处理后数据
+                    double fHeightDiff = data[qMakePair(endp, startp)].first;
+                    double fDistance = data[qMakePair(endp, startp)].second;
+                    data[qMakePair(endp, startp)].first = fHeightDiff < 0 ? -(absoluteMean(fHeightDiff, heightDiff)) : absoluteMean(fHeightDiff, heightDiff);
+                    data[qMakePair(endp, startp)].second = absoluteMean(fDistance, distance);
+                } else {
+                    data[qMakePair(startp, endp)].first = heightDiff;
+                    data[qMakePair(startp, endp)].second = distance;
+                }
             } else {
-                data[qMakePair(startp, endp)].first = heightDiff;
-                data[qMakePair(startp, endp)].second = distance;
+                qDebug() << "In1数据有误" << line;
+                return std::nullopt;
             }
         }
     }
-
     return data;
 }
 
-QMap<QPair<QString, QString>, QPair<QPair<double, double>, QPair<double, double>>> QAdjustFileParse::In1::ParseIn1EveryOrient(QTextStream& in)
+std::optional<QMap<QPair<QString, QString>, QPair<QPair<double, double>, QPair<double, double>>>> QAdjustFileParse::In1::ParseIn1EveryOrient(QTextStream& in)
 {
     // 是否读到未知点所在行
     bool s = false;
@@ -193,16 +246,15 @@ QMap<QPair<QString, QString>, QPair<QPair<double, double>, QPair<double, double>
         if (line.isEmpty()) {
             continue;
         }
-        if (line.split(",").size() == 4) {
+        QStringList splitString = line.split(",");
+
+        if (splitString.size() == 4) {
             s = true;
         }
-        if (!s) {
-            // QStringList splitString = line.split(",");
-            // QString pname = splitString[0];
-            // double altitude = splitString[1].toDouble();
-            // knownPoints[pname] = altitude;
-        } else {
-            QStringList splitString = line.split(",");
+        if (s) {
+            if (splitString.size() != 4) {
+                return std::nullopt;
+            }
             QString startp = splitString[0];
             QString endp = splitString[1];
             double heightDiff = splitString[2].toDouble();
@@ -226,11 +278,14 @@ QMap<QPair<QString, QString>, QPair<QPair<double, double>, QPair<double, double>
     return data;
 }
 
-QList<In1Observed> QAdjustFileParse::In1::ParseIn12Enity(QTextStream& stream)
+QADJUSTFILEPARSE_EXPORT std::optional<QList<In1Observed>> QAdjustFileParse::In1::ParseIn12Entity(QTextStream& stream)
 {
     QList<In1Observed> obss;
-    auto&& in1 = QAdjustFileParse::In1::ParseIn1(stream);
-
+    auto&& opt = QAdjustFileParse::In1::ParseIn1(stream);
+    if (!opt.has_value()) {
+        return std::nullopt;
+    }
+    auto&& in1 = opt.value();
     auto&& observedDatas = in1;
     for (auto&& pointPair : observedDatas.keys()) {
         auto&& start = pointPair.first;
@@ -245,7 +300,7 @@ QList<In1Observed> QAdjustFileParse::In1::ParseIn12Enity(QTextStream& stream)
 
 bool QAdjustFileParse::Dat::IsValidDatLine(QString line)
 {
-    if (line.contains("####") || line.contains("Measurement repeated") || line.contains("Station repeated")) {
+    if (line.contains("####") || line.contains("Measurement repeated") || line.contains("Station repeated") || line.contains("Reading E327") || line.contains("Sh") || line.contains("Db")) {
         return false;
     }
     return true;
@@ -263,73 +318,65 @@ double QAdjustFileParse::absoluteMean(double num1, double num2)
     return (abs(num1) + abs(num2)) / 2;
 }
 
-QList<QPair<QList<QPair<QList<std::tuple<QString, bool, double, double>>, std::tuple<QString, double, double, double, double, double>>>, QPair<QString, double>>> QAdjustFileParse::GSI::ParseGSI(QTextStream& in)
+std::optional<QList<QPair<QList<QPair<QList<std::tuple<QString, bool, double, double>>, std::tuple<QString, double, double, double, double, double>>>, QPair<QString, double>>>> QAdjustFileParse::GSI::ParseGSI(QTextStream& in)
 {
-    QList<QPair<QList<QPair<QList<std::tuple<QString, bool, double, double>>, std::tuple<QString, double, double, double, double, double>>>, QPair<QString, double>>> gsi;
+    // 存储不同测段的已知点高程
+    QMap<QString, double> knownHeight;
+    // 存储多个测段信息
+    QList<QPair<QList<QPair<QList<std::tuple<QString, bool, double, double>>, std::tuple<QString, double, double, double, double, double>>>, QPair<QString, double>>> gsis;
     while (!in.atEnd()) {
-        gsi.push_back(GSI::ParseGSISeg(in));
-    }
-    return gsi;
-}
-
-QADJUSTFILEPARSE_EXPORT QList<GSISeg> QAdjustFileParse::GSI::ParseGSI2Entity(QTextStream& stream)
-{
-    QList<GSISeg> segs;
-    auto&& gsis = QAdjustFileParse::GSI::ParseGSI(stream);
-
-    for (auto&& seg : gsis) {
-        GSISeg gsiSeg;
-        gsiSeg.setStartPoint(seg.second.first);
-        gsiSeg.setAltitude(seg.second.second);
-
-        QList<GSIRound> rounds;
-        for (auto&& round : seg.first) {
-            GSIRound gsiRound(round);
-            rounds.append(gsiRound);
-        }
-        gsiSeg.setEndPoint(rounds.last().fName());
-        gsiSeg.setGSIRounds(rounds);
-        gsiSeg.setEndPoint(rounds.last().fName());
-        gsiSeg.setDistance(rounds.last().distFromStart());
-        gsiSeg.setHeightDiff(rounds.last().altitude() - gsiSeg.altitude());
-        segs.append(gsiSeg);
-    }
-    return segs;
-}
-
-QPair<QList<QPair<QList<std::tuple<QString, bool, double, double>>, std::tuple<QString, double, double, double, double, double>>>, QPair<QString, double>> QAdjustFileParse::GSI::ParseGSISeg(QTextStream& in)
-{
-    QPair<QString, double> start;
-    QList<QPair<QList<std::tuple<QString, bool, double, double>>, std::tuple<QString, double, double, double, double, double>>> rounds;
-    bool s = false;
-    while (!in.atEnd()) {
-        auto&& pos = in.pos();
-        QString line = in.readLine();
-        QStringList list = SpaceReplacSplit(line);
-        if (s) {
-            in.seek(pos);
+        // 测段已知点高程数据
+        QPair<QString, double> start;
+        // 存储多个测回信息
+        QList<QPair<QList<std::tuple<QString, bool, double, double>>, std::tuple<QString, double, double, double, double, double>>> rounds;
+        // 是否开始测段测量
+        bool s = false;
+        while (!in.atEnd()) {
+            auto&& pos = in.pos();
+            QString line = in.readLine();
+            QStringList list = SpaceReplacSplit(line);
+            if (s) {
+                in.seek(pos);
+                if (list.size() == 1) {
+                    break;
+                } else {
+                    auto&& opt = GSI::ParseGSIRound(in);
+                    if (!opt.has_value()) {
+                        return std::nullopt;
+                    }
+                    auto&& round = opt.value();
+                    rounds.append(round);
+                    continue;
+                }
+            }
+            // 读到测段起始点
             if (list.size() == 1) {
-                break;
-            } else {
-                rounds.append(GSI::ParseGSIRound(in));
-                continue;
+                s = true;
+                // 处理起始点数据
+                QString startLine = in.readLine();
+                QStringList startList = SpaceReplacSplit(startLine);
+                if (startList.size() == 2) {
+                    start.first = GSI::ParseGSIPName(startList[0]);
+                    start.second = GSI::ParseGSIValue(startList[1]);
+                    knownHeight[start.first] = start.second;
+                } else if (startList.size() == 6) {
+                    auto&& pname = GSI::ParseGSIPName(startList[0]);
+                    if (knownHeight.contains(pname)) {
+                        start.first = pname;
+                        start.second = knownHeight[startList[0]];
+                    }
+                } else {
+                    qDebug() << "GSI测段起始点数据有误" << startLine;
+                    return std::nullopt;
+                }
             }
         }
-
-        if (list.size() == 1) {
-            s = true;
-            // 处理起始点数据
-            QString startLine = in.readLine();
-            QStringList startList = SpaceReplacSplit(startLine);
-            start.first = GSI::ParseGSIPName(startList[0]);
-            start.second = GSI::ParseGSIValue(startList[1]);
-            continue;
-        }
+        gsis.push_back(qMakePair(rounds, start));
     }
-    return qMakePair(rounds, start);
+    return gsis;
 }
 
-QPair<QList<std::tuple<QString, bool, double, double>>, std::tuple<QString, double, double, double, double, double>> QAdjustFileParse::GSI::ParseGSIRound(QTextStream& in)
+std::optional<QPair<QList<std::tuple<QString, bool, double, double>>, std::tuple<QString, double, double, double, double, double>>> QAdjustFileParse::GSI::ParseGSIRound(QTextStream& in)
 {
     QList<std::tuple<QString, bool, double, double>> rdatas;
     std::tuple<QString, double, double, double, double, double> sdata;
@@ -344,6 +391,8 @@ QPair<QList<std::tuple<QString, bool, double, double>>, std::tuple<QString, doub
         } else if (lineList.size() == 6) {
             sLine = lineList;
             break;
+        } else {
+            return std::nullopt;
         }
     }
     // 目标
@@ -360,23 +409,43 @@ QPair<QList<std::tuple<QString, bool, double, double>>, std::tuple<QString, doub
     double altitude = GSI::ParseGSIValue(sLine[5]);
     sdata = std::make_tuple(targetPName, heightDiffDiff, heightDiffDiffAcc, distAccDiff, distFromStart, altitude);
 
+    // 是否有前侧点数据
+    bool s = false;
+    // 测回四条数据 是否与目标点匹配
     for (auto&& rLine : rLines) {
-        QString target = GSI::ParseGSIPName(rLine[0]);
-        double rulerNum = GSI::ParseGSIValue(rLine[1]);
-        double dist = GSI::ParseGSIValue(rLine[2]);
         // 前进目标方向为true
         bool orient = false;
-        if (target == targetPName) {
-            orient = true;
-        }
+        QString target = GSI::ParseGSIPName(rLine[0]);
+        // 标尺读数
+        double rulerNum = GSI::ParseGSIValue(rLine[1]);
+        double dist = GSI::ParseGSIValue(rLine[2]);
+        targetPName == target ? orient = true, s = true : orient = false;
         rdatas.append(std::make_tuple(target, orient, rulerNum, dist));
     }
+
+    // 未读到四个数据
+    if (rdatas.size() != 4 || !s) {
+        qDebug() << "GSI测回数据有误";
+        qDebug() << rLines;
+        return std::nullopt;
+    }
+    // 四条数据不匹配
+    if (std::get<0>(rdatas[0]) != std::get<0>(rdatas[3]) || std::get<0>(rdatas[1]) != std::get<0>(rdatas[2])) {
+        qDebug() << "GSI测回数据有误";
+        qDebug() << rLines;
+        return std::nullopt;
+    }
+
     return qMakePair(rdatas, sdata);
 }
 
 QString QAdjustFileParse::GSI::ParseGSIPName(QString input)
 {
-    return input.right(8);
+    QString right = input.right(8);
+    /* while (right.startsWith("0")) {
+         right = right.right(right.size() - 1);
+     }*/
+    return right;
 }
 
 double QAdjustFileParse::GSI::ParseGSIValue(QString input)
@@ -388,7 +457,7 @@ double QAdjustFileParse::GSI::ParseGSIValue(QString input)
     return data;
 }
 
-QPair<QString, QList<QPair<int, QList<QPair<QString, std::tuple<QPair<std::tuple<double, double, double>, std::tuple<double, double, double>>, double, double>>>>>> QAdjustFileParse::SUC::ParseSuc(QTextStream& in)
+std::optional<QPair<QString, QList<QPair<int, QList<QPair<QString, std::tuple<QPair<std::tuple<double, double, double>, std::tuple<double, double, double>>, double, double>>>>>>> QAdjustFileParse::SUC::ParseSuc(QTextStream& in)
 {
     // 测站名
     QString deviceName;
@@ -408,13 +477,44 @@ QPair<QString, QList<QPair<int, QList<QPair<QString, std::tuple<QPair<std::tuple
         }
         if (s) {
             int surveyTime = lineList[0].trimmed().toInt();
-            rounds.append(qMakePair(surveyTime, SUC::ParseSucRound(in)));
+            auto&& opt = SUC::ParseSucRound(in);
+            if (!opt.has_value()) {
+                qDebug() << "SUC数据有误"
+                         << "测站名：" << deviceName << "测回：" << surveyTime;
+                return std::nullopt;
+            }
+            auto&& round = opt.value();
+            rounds.append(qMakePair(surveyTime, round));
         }
     }
     return qMakePair(deviceName, rounds);
 }
 
-QADJUSTFILEPARSE_EXPORT QMap<QString, QList<QPair<int, QList<QPair<QString, QPair<std::tuple<double, double, double>, std::tuple<double, double, double>>>>>>> QAdjustFileParse::SUC::ParseSucEveryOrient(QTextStream& in)
+QADJUSTFILEPARSE_EXPORT std::optional<QList<SucPoint>> QAdjustFileParse::SUC::ParseSuc2Entity(QTextStream& stream)
+{
+    QList<SucPoint> points;
+    auto&& opt = QAdjustFileParse::SUC::ParseSuc(stream);
+    if (!opt.has_value()) {
+        return std::nullopt;
+    }
+    auto&& suc = opt.value();
+    QString stnName = suc.first;
+    for (auto&& round : suc.second) {
+        int surveyTime = round.first;
+        for (auto&& point : round.second) {
+            QString pname = point.first;
+            auto&& [hf, vf, sf] = std::get<0>(point.second).first;
+            auto&& [hr, vr, sr] = std::get<0>(point.second).second;
+            auto&& deviceHeight = std::get<1>(point.second);
+            auto&& prismHeight = std::get<2>(point.second);
+            SucPoint point(stnName, surveyTime, pname, Utils::HV::AMS2A(hf), Utils::HV::AMS2A(vf), sf, Utils::HV::AMS2A(hr), Utils::HV::AMS2A(vr), sr, deviceHeight, prismHeight);
+            points.append(point);
+        }
+    }
+    return points;
+}
+
+std::optional<QMap<QString, QList<QPair<int, QList<QPair<QString, QPair<std::tuple<double, double, double>, std::tuple<double, double, double>>>>>>>> QAdjustFileParse::SUC::ParseSucEveryOrient(QTextStream& in)
 {
     // 测站名
     QString deviceName;
@@ -449,7 +549,14 @@ QADJUSTFILEPARSE_EXPORT QMap<QString, QList<QPair<int, QList<QPair<QString, QPai
             }
         }
         if (s && isNewStn) {
-            rounds.append(qMakePair(surveyTime, QAdjustFileParse::SUC::ParseSucRoundEveryOrient(in)));
+            auto&& opt = QAdjustFileParse::SUC::ParseSucRoundEveryOrient(in);
+            if (!opt.has_value()) {
+                qDebug() << "SUC数据处理有误"
+                         << "测站名：" << deviceName << "测回：" << surveyTime;
+                return std::nullopt;
+            }
+            auto&& round = opt.value();
+            rounds.append(qMakePair(surveyTime, round));
             s = false;
         }
         if (in.atEnd()) {
@@ -460,27 +567,7 @@ QADJUSTFILEPARSE_EXPORT QMap<QString, QList<QPair<int, QList<QPair<QString, QPai
     return result;
 }
 
-QList<SucPoint> QAdjustFileParse::SUC::ParseSuc2Entity(QTextStream& stream)
-{
-    QList<SucPoint> points;
-    auto&& suc = QAdjustFileParse::SUC::ParseSuc(stream);
-    QString stnName = suc.first;
-    for (auto&& round : suc.second) {
-        int surveyTime = round.first;
-        for (auto&& point : round.second) {
-            QString pname = point.first;
-            auto&& [hf, vf, sf] = std::get<0>(point.second).first;
-            auto&& [hr, vr, sr] = std::get<0>(point.second).second;
-            auto&& deviceHeight = std::get<1>(point.second);
-            auto&& prismHeight = std::get<2>(point.second);
-            SucPoint point(stnName, surveyTime, pname, Utils::HV::AMS2A(hf), Utils::HV::AMS2A(vf), sf, Utils::HV::AMS2A(hr), Utils::HV::AMS2A(vr), sr, deviceHeight, prismHeight);
-            points.append(point);
-        }
-    }
-    return points;
-}
-
-QList<QPair<QString, std::tuple<QPair<std::tuple<double, double, double>, std::tuple<double, double, double>>, double, double>>> QAdjustFileParse::SUC::ParseSucRound(QTextStream& in)
+std::optional<QList<QPair<QString, std::tuple<QPair<std::tuple<double, double, double>, std::tuple<double, double, double>>, double, double>>>> QAdjustFileParse::SUC::ParseSucRound(QTextStream& in)
 {
     // 上半测回点集map key:点名 value:点序号 序号是leftDatas的索引
     QMap<QString, int> leftPnames;
@@ -497,6 +584,9 @@ QList<QPair<QString, std::tuple<QPair<std::tuple<double, double, double>, std::t
     while (!in.atEnd()) {
         auto&& pos = in.pos();
         QString line = in.readLine();
+        if (line.contains("End")) {
+            break;
+        }
         QStringList lineList = line.split(",");
         if (lineList.size() == 6) {
             QString pname = lineList[0].trimmed();
@@ -531,7 +621,13 @@ QList<QPair<QString, std::tuple<QPair<std::tuple<double, double, double>, std::t
         } else if (lineList.size() == 1) {
             in.seek(pos);
             break;
+        } else {
+            return std::nullopt;
         }
+    }
+
+    if (leftDatas.size() != rightDatas.size()) {
+        return std::nullopt;
     }
 
     QList<QPair<QString, std::tuple<QPair<std::tuple<double, double, double>, std::tuple<double, double, double>>, double, double>>> rounds;
@@ -556,7 +652,7 @@ QList<QPair<QString, std::tuple<QPair<std::tuple<double, double, double>, std::t
     return rounds;
 }
 
-QList<QPair<QString, QPair<std::tuple<double, double, double>, std::tuple<double, double, double>>>> QAdjustFileParse::SUC::ParseSucRoundEveryOrient(QTextStream& in)
+std::optional<QList<QPair<QString, QPair<std::tuple<double, double, double>, std::tuple<double, double, double>>>>> QAdjustFileParse::SUC::ParseSucRoundEveryOrient(QTextStream& in)
 {
     // 上半测回点集map key:点名 value:点序号 序号是leftDatas的索引
     QMap<QString, int> leftPnames;
@@ -602,6 +698,9 @@ QList<QPair<QString, QPair<std::tuple<double, double, double>, std::tuple<double
     }
 
     QList<QPair<QString, QPair<std::tuple<double, double, double>, std::tuple<double, double, double>>>> rounds;
+    if (leftDatas.size() != rightDatas.size()) {
+        return std::nullopt;
+    }
     auto&& leftIter = leftDatas.begin();
     auto&& rightIter = rightDatas.rbegin();
 
@@ -623,10 +722,6 @@ QList<QPair<QString, QPair<std::tuple<double, double, double>, std::tuple<double
 
 QList<QPair<QString, QList<std::tuple<QString, QString, double>>>> QAdjustFileParse::In2::ParseIn2(QTextStream& in)
 {
-    // 已知误差
-    // std::tuple<double, double, double, double> knownDeviation;
-    // 已知测站数据 {测站名，{x,y}}
-    // QMap<QString, Eigen::Vector2d> knownStns;
     // 观测数据
     QList<QPair<QString, QList<std::tuple<QString, QString, double>>>> stnDatas;
     // 是否读到测站行
@@ -640,18 +735,6 @@ QList<QPair<QString, QList<std::tuple<QString, QString, double>>>> QAdjustFilePa
         }
         QStringList lineList = line.split(",");
         if (!s) {
-            // 是否是误差行
-            // if (Utils::IsNumber(lineList[0])) {
-            //    if (lineList.size() == 3) {
-            //        //knownDeviation = std::make_tuple(lineList[0].toDouble(), 0, lineList[1].toDouble(), lineList[2].toDouble());
-            //    } else if (lineList.size() == 4) {
-            //        knownDeviation = std::make_tuple(lineList[0].toDouble(), lineList[1].toDouble(), lineList[2].toDouble(), lineList[3].toDouble());
-            //    }
-            //} else {
-            //    if (lineList.size() == 3) {
-            //        knownStns[lineList[0]] = Eigen::Vector2d(lineList[1].toDouble(), lineList[2].toDouble());
-            //    }
-            //}
         }
 
         if (lineList.size() == 1) {
@@ -673,6 +756,10 @@ QList<QPair<QString, QList<In2Observed>>> QAdjustFileParse::In2::ParseIn22Entity
         QString stn = ObservedGroup.first;
         for (auto&& obsData : ObservedGroup.second) {
             auto&& [pname, type, value] = obsData;
+            auto&& obsType = S2E(In2Observed::ObservedValueType, type);
+            if (obsType == In2Observed::ObservedValueType::L || obsType == In2Observed::ObservedValueType::A) {
+                CW->dms() == ConfigWrap::Dms::AMSS ? value = Utils::HV::AMSS2A(value) : value = Utils::HV::AMS2A(value);
+            }
             In2Observed obs(stn, pname, S2E(In2Observed::ObservedValueType, type), value);
             obss.append(obs);
         }
@@ -725,7 +812,7 @@ QPair<QMap<QString, QPair<Eigen::Vector2d, bool>>, QList<QPair<QString, QString>
         if (line.isEmpty()) {
             continue;
         }
-        QStringList list = SpaceReplacSplit(line);
+        QStringList list = line.trimmed().split(",");
         if (list.size() == 4) {
             auto&& pname = list[0];
             auto&& x = list[1].toDouble();
@@ -737,4 +824,32 @@ QPair<QMap<QString, QPair<Eigen::Vector2d, bool>>, QList<QPair<QString, QString>
         }
     }
     return qMakePair(points, lines);
+}
+
+std::optional<QList<GSISeg>> QAdjustFileParse::GSI::ParseGSI2Entity(QTextStream& stream)
+{
+    QList<GSISeg> segs;
+    auto&& opt = QAdjustFileParse::GSI::ParseGSI(stream);
+    if (!opt.has_value()) {
+        return std::nullopt;
+    }
+    auto&& gsis = opt.value();
+    for (auto&& seg : gsis) {
+        GSISeg gsiSeg;
+        gsiSeg.setStartPoint(seg.second.first);
+        gsiSeg.setAltitude(seg.second.second);
+
+        QList<GSIRound> rounds;
+        for (auto&& round : seg.first) {
+            GSIRound gsiRound(round);
+            rounds.append(gsiRound);
+        }
+        gsiSeg.setEndPoint(rounds.last().fName());
+        gsiSeg.setGSIRounds(rounds);
+        gsiSeg.setEndPoint(rounds.last().fName());
+        gsiSeg.setDistance(rounds.last().distFromStart());
+        gsiSeg.setHeightDiff(rounds.last().altitude() - gsiSeg.altitude());
+        segs.append(gsiSeg);
+    }
+    return segs;
 }

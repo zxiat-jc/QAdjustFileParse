@@ -720,7 +720,7 @@ std::optional<QList<QPair<QString, QPair<std::tuple<double, double, double>, std
     return rounds;
 }
 
-QList<QPair<QString, QList<std::tuple<QString, QString, double>>>> QAdjustFileParse::In2::ParseIn2(QTextStream& in)
+std::optional<QList<QPair<QString, QList<std::tuple<QString, QString, double>>>>> QAdjustFileParse::In2::ParseIn2(QTextStream& in)
 {
     // 观测数据
     QList<QPair<QString, QList<std::tuple<QString, QString, double>>>> stnDatas;
@@ -739,16 +739,25 @@ QList<QPair<QString, QList<std::tuple<QString, QString, double>>>> QAdjustFilePa
 
         if (lineList.size() == 1) {
             in.seek(pos);
-            stnDatas.append(ParseIn2StnData(in));
+            auto&& opt = ParseIn2StnData(in);
+            if (!opt.has_value()) {
+                return std::nullopt;
+            }
+            auto&& stnData = opt.value();
+            stnDatas.append(stnData);
             s = true;
         }
     }
     return stnDatas;
 }
 
-QList<QPair<QString, QList<In2Observed>>> QAdjustFileParse::In2::ParseIn22Entity(QTextStream& stream)
+std::optional<QList<QPair<QString, QList<In2Observed>>>> QAdjustFileParse::In2::ParseIn22Entity(QTextStream& stream)
 {
-    auto&& ObservedGroups = QAdjustFileParse::In2::ParseIn2(stream);
+    auto&& opt = QAdjustFileParse::In2::ParseIn2(stream);
+    if (!opt.has_value()) {
+        return std::nullopt;
+    }
+    auto&& ObservedGroups = opt.value();
     QList<QPair<QString, QList<In2Observed>>> result;
     for (auto&& ObservedGroup : ObservedGroups) {
         QPair<QString, QList<In2Observed>> stnData;
@@ -769,7 +778,7 @@ QList<QPair<QString, QList<In2Observed>>> QAdjustFileParse::In2::ParseIn22Entity
     return result;
 }
 
-QPair<QString, QList<std::tuple<QString, QString, double>>> QAdjustFileParse::In2::ParseIn2StnData(QTextStream& in)
+std::optional<QPair<QString, QList<std::tuple<QString, QString, double>>>> QAdjustFileParse::In2::ParseIn2StnData(QTextStream& in)
 {
     QPair<QString, QList<std::tuple<QString, QString, double>>> stnData;
     // 是否读到主测站行
@@ -782,6 +791,11 @@ QPair<QString, QList<std::tuple<QString, QString, double>>> QAdjustFileParse::In
         }
 
         QStringList lineList = line.split(",");
+        if (lineList.size() != 3 && lineList.size() != 1) {
+            qDebug() << "In2数据有误" << line;
+            return std::nullopt;
+        }
+
         if (!s) {
             if (lineList.size() == 1) {
                 QString stn = lineList[0];

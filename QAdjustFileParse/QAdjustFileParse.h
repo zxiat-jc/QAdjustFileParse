@@ -68,14 +68,14 @@ namespace In2 {
      * @param stream 文件流
      * @return tuple(tuple(方向中误差，方位角误差，测边固定误差，比例误差)}，QMap{测站号，Eigen::Vector2d<x,y>},QList<QPair<测站号，QList<tuple(观测名，类型，观测值)>>>)
      */
-    QADJUSTFILEPARSE_EXPORT QList<QPair<QString, QList<std::tuple<QString, QString, double>>>> ParseIn2(QTextStream& stream);
+    QADJUSTFILEPARSE_EXPORT std::optional<QList<QPair<QString, QList<std::tuple<QString, QString, double>>>>> ParseIn2(QTextStream& stream);
 
     /**
      * @brief in2解析为对象
      * @param stream
      * @return
      */
-    QADJUSTFILEPARSE_EXPORT QList<QPair<QString, QList<In2Observed>>> ParseIn22Entity(QTextStream& stream);
+    QADJUSTFILEPARSE_EXPORT std::optional<QList<QPair<QString, QList<In2Observed>>>> ParseIn22Entity(QTextStream& stream);
 }
 namespace Gra {
     QADJUSTFILEPARSE_EXPORT QPair<QMap<QString, QPair<Eigen::Vector2d, bool>>, QList<QPair<QString, QString>>> ParseGra(QTextStream& stream);

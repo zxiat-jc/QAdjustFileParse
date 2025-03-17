@@ -108,7 +108,7 @@ namespace SUC {
     std::optional<QPair<QString, QList<QPair<int, QList<QPair<QString, std::tuple<QPair<std::tuple<double, double, double>, std::tuple<double, double, double>>, double, double>>>>>>> ParseSuc(QTextStream& stream);
 }
 namespace In2 {
-    QPair<QString, QList<std::tuple<QString, QString, double>>> ParseIn2StnData(QTextStream& stream);
+    std::optional<QPair<QString, QList<std::tuple<QString, QString, double>>>> ParseIn2StnData(QTextStream& stream);
 }
 namespace In1 {
 

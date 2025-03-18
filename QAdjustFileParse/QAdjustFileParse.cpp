@@ -34,7 +34,7 @@ QADJUSTFILEPARSE_EXPORT std::optional<QList<DatSeg>> QAdjustFileParse::Dat::Pars
     QList<DatSeg> segs;
     auto&& opt = QAdjustFileParse::Dat::ParseDat(stream);
     if (!opt.has_value()) {
-        std::nullopt;
+        return std::nullopt;
     }
     auto&& dat = opt.value();
     for (int i = 0; i < dat.size(); i++) {
@@ -75,6 +75,10 @@ std::optional<QPair<QList<QPair<QList<std::tuple<QString, QString, double, doubl
     while (!in.atEnd()) {
         auto&& pos = in.pos();
         QString line = in.readLine();
+        if (!line.startsWith("For M5")) {
+            qDebug() << "DAT测回数据有误" << line;
+            return std::nullopt;
+        }
         if (line.contains("Start-Line")) {
             s = true;
             auto&& opt = Dat::ParseDatRoundAltitudeLine(in.readLine());
@@ -334,6 +338,11 @@ std::optional<QList<QPair<QList<QPair<QList<std::tuple<QString, bool, double, do
         while (!in.atEnd()) {
             auto&& pos = in.pos();
             QString line = in.readLine();
+            if (!line.startsWith("*")) {
+                qDebug() << "GSI数据有误" << line;
+                return std::nullopt;
+            }
+
             QStringList list = SpaceReplacSplit(line);
             if (s) {
                 in.seek(pos);
@@ -474,6 +483,7 @@ std::optional<QPair<QString, QList<QPair<int, QList<QPair<QString, std::tuple<QP
             if (lineList.size() == 1) {
                 s = true;
             }
+            continue;
         }
         if (s) {
             int surveyTime = lineList[0].trimmed().toInt();

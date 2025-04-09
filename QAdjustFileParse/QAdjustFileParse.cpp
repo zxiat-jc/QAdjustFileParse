@@ -29,7 +29,7 @@ std::optional<QList<QPair<QList<QPair<QList<std::tuple<QString, QString, double,
     return dat;
 }
 
-QADJUSTFILEPARSE_EXPORT std::optional<QList<DatSeg>> QAdjustFileParse::Dat::ParseDat2Entity(QTextStream& stream)
+ std::optional<QList<DatSeg>> QAdjustFileParse::Dat::ParseDat2Entity(QTextStream& stream)
 {
     QList<DatSeg> segs;
     auto&& opt = QAdjustFileParse::Dat::ParseDat(stream);
@@ -282,7 +282,7 @@ std::optional<QMap<QPair<QString, QString>, QPair<QPair<double, double>, QPair<d
     return data;
 }
 
-QADJUSTFILEPARSE_EXPORT std::optional<QList<In1Observed>> QAdjustFileParse::In1::ParseIn12Entity(QTextStream& stream)
+ std::optional<QList<In1Observed>> QAdjustFileParse::In1::ParseIn12Entity(QTextStream& stream)
 {
     QList<In1Observed> obss;
     auto&& opt = QAdjustFileParse::In1::ParseIn1(stream);
@@ -500,7 +500,7 @@ std::optional<QPair<QString, QList<QPair<int, QList<QPair<QString, std::tuple<QP
     return qMakePair(deviceName, rounds);
 }
 
-QADJUSTFILEPARSE_EXPORT std::optional<QList<SucPoint>> QAdjustFileParse::SUC::ParseSuc2Entity(QTextStream& stream)
+ std::optional<QList<SucPoint>> QAdjustFileParse::SUC::ParseSuc2Entity(QTextStream& stream)
 {
     QList<SucPoint> points;
     auto&& opt = QAdjustFileParse::SUC::ParseSuc(stream);
@@ -517,7 +517,7 @@ QADJUSTFILEPARSE_EXPORT std::optional<QList<SucPoint>> QAdjustFileParse::SUC::Pa
             auto&& [hr, vr, sr] = std::get<0>(point.second).second;
             auto&& deviceHeight = std::get<1>(point.second);
             auto&& prismHeight = std::get<2>(point.second);
-            SucPoint point(stnName, surveyTime, pname, Utils::HV::AMS2A(hf), Utils::HV::AMS2A(vf), sf, Utils::HV::AMS2A(hr), Utils::HV::AMS2A(vr), sr, deviceHeight, prismHeight);
+            SucPoint point(stnName, surveyTime, pname, Utils::Geometry::Fun::HV::AMS2A(hf), Utils::Geometry::Fun::HV::AMS2A(vf), sf, Utils::Geometry::Fun::HV::AMS2A(hr), Utils::Geometry::Fun::HV::AMS2A(vr), sr, deviceHeight, prismHeight);
             points.append(point);
         }
     }
@@ -776,9 +776,6 @@ std::optional<QList<QPair<QString, QList<In2Observed>>>> QAdjustFileParse::In2::
         for (auto&& obsData : ObservedGroup.second) {
             auto&& [pname, type, value] = obsData;
             auto&& obsType = S2E(In2Observed::ObservedValueType, type);
-            if (obsType == In2Observed::ObservedValueType::L || obsType == In2Observed::ObservedValueType::A) {
-                CW->dms() == ConfigWrap::Dms::AMSS ? value = Utils::HV::AMSS2A(value) : value = Utils::HV::AMS2A(value);
-            }
             In2Observed obs(stn, pname, S2E(In2Observed::ObservedValueType, type), value);
             obss.append(obs);
         }

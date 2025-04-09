@@ -20,7 +20,7 @@ namespace GSI {
      * @param stream 文件流
      * @return QList{<QList{<QList{{目标，方向，高差，距离}},<目标，高差之差，高差之差累计差，前后视距累计差，距起始点距离，高程>>},<起始点，起始点高程>>}
      */
-    QADJUSTFILEPARSE_EXPORT std::optional<QList<QPair<QList<QPair<QList<std::tuple<QString, bool, double, double>>, std::tuple<QString, double, double, double, double, double>>>, QPair<QString, double>>>> ParseGSI(QTextStream& stream);
+    std::optional<QList<QPair<QList<QPair<QList<std::tuple<QString, bool, double, double>>, std::tuple<QString, double, double, double, double, double>>>, QPair<QString, double>>>> ParseGSI(QTextStream& stream);
 
     /**
      * @brief GSI文件测回数据解析
@@ -117,6 +117,6 @@ namespace In1 {
      * @param stream 文件流
      * @return QMap{<起始点，目标点>，<高差，距离>}
      */
-    QADJUSTFILEPARSE_EXPORT std::optional<QMap<QPair<QString, QString>, QPair<double, double>>> ParseIn1(QTextStream& stream);
+    std::optional<QMap<QPair<QString, QString>, QPair<double, double>>> ParseIn1(QTextStream& stream);
 }
 };
